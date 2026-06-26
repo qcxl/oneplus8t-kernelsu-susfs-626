@@ -181,7 +181,7 @@ jobs:
           # Fix do_set_init_pgrp for kernel 4.19 compatibility
           # tasklist_lock, task_pgrp, init_task, task_session are not available in 4.19
           if [ -f "drivers/kernelsu/supercall/dispatch.c" ]; then
-            sed -i '/static int do_set_init_pgrp/,/^}$/c static int do_set_init_pgrp(void __user *arg)\n{\n    return -ENOTSUP;\n}' drivers/kernelsu/supercall/dispatch.c
+            sed -i '/static int do_set_init_pgrp/,/^}$/c static int do_set_init_pgrp(void __user *arg)\n{\n    return -EOPNOTSUPP;\n}' drivers/kernelsu/supercall/dispatch.c
           fi
 
           # Ensure susfs.o is in fs/Makefile

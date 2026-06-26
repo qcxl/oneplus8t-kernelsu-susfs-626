@@ -32,12 +32,6 @@ jobs:
           echo "LLVM=1" >> $GITHUB_ENV
           echo "LLVM_IAS=1" >> $GITHUB_ENV
 
-      - name: Download magiskboot
-        run: |
-          mkdir -p tools
-          curl -fsSL -o tools/magiskboot https://github.com/topjohnwu/magisk-tools/releases/download/v26.1/magiskboot-x86_64
-          chmod +x tools/magiskboot
-
       - name: Clone kernel source
         run: |
           git clone https://github.com/LineageOS/android_kernel_oneplus_sm8250.git kernel

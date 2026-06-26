@@ -153,6 +153,13 @@ jobs:
             sed -i 's/copy_to_user_nofault(/copy_to_user(/g' drivers/kernelsu/runtime/ksud_integration.c
           fi
 
+          # Fix selinux_cred for kernel 4.19 compatibility
+          # selinux_cred was introduced in kernel 5.x, not available in 4.19
+          # In kernel 4.19, use cred->security directly
+          if [ -f "drivers/kernelsu/selinux/selinux.c" ]; then
+            sed -i 's/selinux_cred(cred)/((struct task_security_struct *)cred->security)/g' drivers/kernelsu/selinux/selinux.c
+          fi
+
           # Ensure susfs.o is in fs/Makefile
           if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*susfs\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' >> fs/Makefile

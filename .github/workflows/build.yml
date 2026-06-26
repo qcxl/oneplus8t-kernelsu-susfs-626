@@ -358,21 +358,21 @@ jobs:
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             2>&1 | tee build.log
 
-       - name: Verify kernel image
-         working-directory: kernel
-         run: |
-           IMAGE_GZ=out/arch/arm64/boot/Image.gz
-           IMAGE=out/arch/arm64/boot/Image
-           if [ ! -f "$IMAGE_GZ" ] && [ ! -f "$IMAGE" ]; then
-             echo "Build failed — no kernel image produced"
-             tail -200 build.log
-             exit 1
-           fi
-           if [ ! -f "$IMAGE_GZ" ] && [ -f "$IMAGE" ]; then
-             echo "Image.gz not found, compressing Image..."
-             gzip -c "$IMAGE" > "$IMAGE_GZ"
-           fi
-           ls -lh out/arch/arm64/boot/
+      - name: Verify kernel image
+        working-directory: kernel
+        run: |
+            IMAGE_GZ=out/arch/arm64/boot/Image.gz
+            IMAGE=out/arch/arm64/boot/Image
+            if [ ! -f "$IMAGE_GZ" ] && [ ! -f "$IMAGE" ]; then
+            echo "Build failed — no kernel image produced"
+            tail -200 build.log
+            exit 1
+            fi
+            if [ ! -f "$IMAGE_GZ" ] && [ -f "$IMAGE" ]; then
+            echo "Image.gz not found, compressing Image..."
+            gzip -c "$IMAGE" > "$IMAGE_GZ"
+            fi
+            ls -lh out/arch/arm64/boot/
 
       - name: Upload build log on failure
         if: failure()
@@ -384,14 +384,14 @@ jobs:
 
       - name: Prepare artifact
         run: |
-          mkdir -p artifact
-          cp kernel/out/arch/arm64/boot/Image.gz artifact/Image.gz
-          cp kernel/out/arch/arm64/boot/dtb.img artifact/dtb.img 2>/dev/null || true
-          cp kernel/out/arch/arm64/boot/dtbo.img artifact/dtbo.img 2>/dev/null || true
-          cd artifact
-          zip -r9 ../kebab-kernelsu-susfs-a13-4.19.zip .
-          cd ..
-          ls -lh kebab-kernelsu-susfs-a13-4.19.zip
+            mkdir -p artifact
+            cp kernel/out/arch/arm64/boot/Image.gz artifact/Image.gz
+            cp kernel/out/arch/arm64/boot/dtb.img artifact/dtb.img 2>/dev/null || true
+            cp kernel/out/arch/arm64/boot/dtbo.img artifact/dtbo.img 2>/dev/null || true
+            cd artifact
+            zip -r9 ../kebab-kernelsu-susfs-a13-4.19.zip .
+            cd ..
+            ls -lh kebab-kernelsu-susfs-a13-4.19.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

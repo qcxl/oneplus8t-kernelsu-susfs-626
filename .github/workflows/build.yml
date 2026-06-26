@@ -89,6 +89,12 @@ jobs:
           cp ../susfs/kernel_patches/include/linux/sus_su.h include/linux/
           cp ../susfs/kernel_patches/include/linux/susfs_def.h include/linux/
 
+          # Fix MODULE_IMPORT_NS for kernel 4.19 compatibility
+          # This macro is not available in kernel 4.19
+          if [ -f "drivers/kernelsu/core/init.c" ]; then
+            sed -i 's/^MODULE_IMPORT_NS.*$/\/\/ MODULE_IMPORT_NS not supported in kernel 4.19/' drivers/kernelsu/core/init.c
+          fi
+
           # Ensure susfs.o is in fs/Makefile
           if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*susfs\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' >> fs/Makefile

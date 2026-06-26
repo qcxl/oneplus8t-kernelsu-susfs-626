@@ -189,6 +189,12 @@ jobs:
             sed -i 's/TWA_RESUME/0/g' drivers/kernelsu/supercall/supercall.c
           fi
 
+          # Replace selinux_hide.c with kernel 4.19 compatible stub
+          # The original uses kernel 5.x SELinux APIs (status_lock, status_page, etc.)
+          if [ -f "drivers/kernelsu/feature/selinux_hide.c" ]; then
+            cp ../kernel-patches/selinux_hide_stub.c drivers/kernelsu/feature/selinux_hide.c
+          fi
+
           # Ensure susfs.o is in fs/Makefile
           if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*susfs\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' >> fs/Makefile

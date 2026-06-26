@@ -95,13 +95,10 @@ jobs:
             sed -i 's/^MODULE_IMPORT_NS.*$/\/\/ MODULE_IMPORT_NS not supported in kernel 4.19/' drivers/kernelsu/core/init.c
           fi
 
-          # Fix linux/pgtable.h include for kernel 4.19 compatibility
-          # linux/pgtable.h was introduced in kernel 5.x, not available in 4.19
-          # Also add strncpy_from_user_nofault declaration for kernel 4.19
+          # Fix linux/pgtable.h and strncpy_from_user_nofault for kernel 4.19
           if [ -f "drivers/kernelsu/feature/sucompat.c" ]; then
             sed -i 's|#include <linux/pgtable.h>|/* #include <linux/pgtable.h> not available in kernel 4.19 */|' drivers/kernelsu/feature/sucompat.c
-            grep -q "strncpy_from_user_nofault" drivers/kernelsu/feature/sucompat.c || \
-              sed -i '/#include <linux/ptrace.h>/a #ifndef __strncpy_from_user_nofault\nlong __strncpy_from_user_nofault(char *dst, const void __user *unsafe_addr, long count);\n#endif' drivers/kernelsu/feature/sucompat.c
+            sed -i 's|strncpy_from_user_nofault(|strncpy_from_user(|g' drivers/kernelsu/feature/sucompat.c
           fi
 
           # Ensure susfs.o is in fs/Makefile

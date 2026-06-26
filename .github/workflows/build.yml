@@ -116,6 +116,13 @@ jobs:
               sed -i '1i #ifndef SECCOMP_ARCH_NATIVE_NR\n#define SECCOMP_ARCH_NATIVE_NR 400\n#endif' drivers/kernelsu/infra/seccomp_cache.c
           fi
 
+          # Fix uapi/linux/mount.h for kernel 4.19 compatibility
+          # uapi/linux/mount.h was introduced in kernel 5.x, not available in 4.19
+          # In kernel 4.19, mount definitions are in linux/mount.h
+          if [ -f "drivers/kernelsu/infra/su_mount_ns.c" ]; then
+            sed -i 's|#include <uapi/linux/mount.h>|#include <linux/mount.h>|' drivers/kernelsu/infra/su_mount_ns.c
+          fi
+
           # Ensure susfs.o is in fs/Makefile
           if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*susfs\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' >> fs/Makefile

@@ -15,6 +15,9 @@
 #include <linux/device.h>
 #include <linux/susfs.h>
 
+/* Declare __strncpy_from_user_nofault if not available in headers */
+extern long __strncpy_from_user_nofault(char *dst, const void __user *unsafe_addr, long count);
+
 /* Stub for susfs_add_sus_path_loop - not in kernel-4.19 */
 int susfs_add_sus_path_loop(void __user *arg)
 {

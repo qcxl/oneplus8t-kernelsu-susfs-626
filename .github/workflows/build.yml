@@ -152,6 +152,8 @@ jobs:
               echo 'void ksu_selinux_hide_handle_post_fs_data(void);' >> include/linux/susfs.h
             grep -q "ksu_selinux_hide_handle_second_stage" include/linux/susfs.h || \
               echo 'void ksu_selinux_hide_handle_second_stage(void);' >> include/linux/susfs.h
+            grep -q "strncpy_from_user_nofault" include/linux/susfs.h || \
+              echo 'long strncpy_from_user_nofault(char *dst, const void __user *unsafe_addr, long count);' >> include/linux/susfs.h
           fi
 
           # Fix fallthrough macro in allowlist.c (kernel 4.19 compatibility)

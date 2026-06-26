@@ -62,6 +62,17 @@ jobs:
             sed -i '/endmenu/i source "drivers/kernelsu/Kconfig"' drivers/Kconfig
           fi
 
+          # Create stub core_hook.h for SUSFS compatibility
+          # SukiSU-Ultra builtin branch doesn't have this file but SUSFS expects it
+          if [ -L "drivers/kernelsu" ] && [ ! -f "drivers/kernelsu/core_hook.h" ]; then
+            cat > drivers/kernelsu/core_hook.h << 'EOF'
+#ifndef _CORE_HOOK_H_
+#define _CORE_HOOK_H_
+/* Stub header for SUSFS compatibility with SukiSU-Ultra builtin branch */
+#endif
+EOF
+          fi
+
       - name: Apply SUSFS patches
         working-directory: kernel
         run: |
@@ -107,6 +118,43 @@ jobs:
               echo '#define CMD_SUSFS_ADD_SUS_MAP 0x55562' >> include/linux/susfs_def.h
             grep -q "CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING" include/linux/susfs_def.h || \
               echo '#define CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING 0x55563' >> include/linux/susfs_def.h
+            grep -q "SUSFS_MAGIC" include/linux/susfs_def.h || \
+              echo '#define SUSFS_MAGIC 0x53485300' >> include/linux/susfs_def.h
+          fi
+
+          # Add missing SUSFS function declarations for kernel-4.19 compatibility
+          if [ -f "include/linux/susfs.h" ]; then
+            grep -q "susfs_start_sdcard_monitor_fn" include/linux/susfs.h || \
+              echo 'int susfs_start_sdcard_monitor_fn(void);' >> include/linux/susfs.h
+            grep -q "susfs_enable_log" include/linux/susfs.h || \
+              echo 'int susfs_enable_log(void __user *arg);' >> include/linux/susfs.h
+            grep -q "susfs_add_sus_map" include/linux/susfs.h || \
+              echo 'int susfs_add_sus_map(void __user *arg);' >> include/linux/susfs.h
+            grep -q "susfs_set_avc_log_spoofing" include/linux/susfs.h || \
+              echo 'int susfs_set_avc_log_spoofing(void __user *arg);' >> include/linux/susfs.h
+            grep -q "susfs_get_enabled_features" include/linux/susfs.h || \
+              echo 'int susfs_get_enabled_features(void __user *arg);' >> include/linux/susfs.h
+            grep -q "susfs_show_variant" include/linux/susfs.h || \
+              echo 'int susfs_show_variant(void __user *arg);' >> include/linux/susfs.h
+            grep -q "susfs_show_version" include/linux/susfs.h || \
+              echo 'int susfs_show_version(void __user *arg);' >> include/linux/susfs.h
+            grep -q "susfs_starts_with" include/linux/susfs.h || \
+              echo 'bool susfs_starts_with(const char *str, const char *prefix);' >> include/linux/susfs.h
+            grep -q "susfs_ends_with" include/linux/susfs.h || \
+              echo 'bool susfs_ends_with(const char *str, const char *suffix);' >> include/linux/susfs.h
+            grep -q "susfs_is_current_proc_umounted" include/linux/susfs.h || \
+              echo 'bool susfs_is_current_proc_umounted(void);' >> include/linux/susfs.h
+            grep -q "susfs_set_current_proc_umounted" include/linux/susfs.h || \
+              echo 'void susfs_set_current_proc_umounted(void);' >> include/linux/susfs.h
+            grep -q "ksu_selinux_hide_handle_post_fs_data" include/linux/susfs.h || \
+              echo 'void ksu_selinux_hide_handle_post_fs_data(void);' >> include/linux/susfs.h
+            grep -q "ksu_selinux_hide_handle_second_stage" include/linux/susfs.h || \
+              echo 'void ksu_selinux_hide_handle_second_stage(void);' >> include/linux/susfs.h
+          fi
+
+          # Fix fallthrough macro in allowlist.c (kernel 4.19 compatibility)
+          if [ -f "drivers/kernelsu/policy/allowlist.c" ]; then
+            sed -i 's/^\s*fallthrough;/\t\t\/\* fall through \*\//g' drivers/kernelsu/policy/allowlist.c
           fi
 
           # Fix pointer type casts in dispatch.c (void** -> typed struct pointers)

@@ -358,16 +358,21 @@ jobs:
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             2>&1 | tee build.log
 
-      - name: Verify kernel image
-        working-directory: kernel
-        run: |
-          IMAGE=out/arch/arm64/boot/Image.gz
-          if [ ! -f "$IMAGE" ]; then
-            echo "Build failed — no Image.gz produced"
-            tail -200 build.log
-            exit 1
-          fi
-          ls -lh out/arch/arm64/boot/
+       - name: Verify kernel image
+         working-directory: kernel
+         run: |
+           IMAGE_GZ=out/arch/arm64/boot/Image.gz
+           IMAGE=out/arch/arm64/boot/Image
+           if [ ! -f "$IMAGE_GZ" ] && [ ! -f "$IMAGE" ]; then
+             echo "Build failed — no kernel image produced"
+             tail -200 build.log
+             exit 1
+           fi
+           if [ ! -f "$IMAGE_GZ" ] && [ -f "$IMAGE" ]; then
+             echo "Image.gz not found, compressing Image..."
+             gzip -c "$IMAGE" > "$IMAGE_GZ"
+           fi
+           ls -lh out/arch/arm64/boot/
 
       - name: Upload build log on failure
         if: failure()

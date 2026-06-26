@@ -1,0 +1,24 @@
+# Build outputs
+output/
+*.zip
+*.img
+*.gz
+
+# Kernel build artifacts
+kernel/
+prebuilts-master/
+tools/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+build.log

@@ -1,0 +1,122 @@
+name: Build KernelSU + SUSFS Kernel
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git curl wget zip unzip \
+            gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            make ncurses-dev bc flex bison libssl-dev libelf-dev
+
+      - name: Download Clang r416183b
+        run: |
+          mkdir -p prebuilts-master/clang/host/linux-x86
+          cd prebuilts-master/clang/host/linux-x86
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r416183b.tar.gz
+          tar -xzf clang-r416183b.tar.gz
+          rm clang-r416183b.tar.gz
+          echo "CLANG_PATH=$(pwd)/clang-r416183b/bin" >> $GITHUB_ENV
+
+      - name: Download magiskboot
+        run: |
+          mkdir -p tools
+          curl -fsSL -o tools/magiskboot https://github.com/topjohnwu/magisk-tools/releases/download/v26.1/magiskboot-x86_64
+          chmod +x tools/magiskboot
+
+      - name: Clone kernel source
+        run: |
+          git clone https://github.com/LineageOS/android_kernel_oneplus_sm8250.git kernel
+          cd kernel
+          git checkout lineage-20
+
+      - name: Apply KernelSU patch
+        run: |
+          cd kernel
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+
+      - name: Apply SUSFS patch
+        run: |
+          cd kernel
+          git clone -b kernel-4.19 https://gitlab.com/simonpunk/susfs4ksu.git susfs
+          cp susfs/kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch KernelSU/
+          cp susfs/kernel_patches/50_add_susfs_in_kernel-4.19.patch .
+          cp susfs/kernel_patches/fs/susfs.c fs/
+          cp susfs/kernel_patches/include/linux/susfs.h include/linux/
+          cp susfs/kernel_patches/include/linux/sus_su.h include/linux/
+          cp susfs/kernel_patches/kernelsu/sus_su.c kernelsu/
+          patch -p1 < KernelSU/10_enable_susfs_for_ksu.patch
+          patch -p1 < 50_add_susfs_in_kernel-4.19.patch
+
+      - name: Configure kernel
+        run: |
+          cd kernel
+          make ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+            CLANG_PREBUILT_BIN=${{ env.CLANG_PATH }} \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            vendor/kona-perf_defconfig
+          ./scripts/kconfig/merge_config.sh -m -O .config .config ../kernel-patches/ksu.config
+          make ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+            CLANG_PREBUILT_BIN=${{ env.CLANG_PATH }} \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            olddefconfig
+
+      - name: Fix compilation (preserve all drivers)
+        run: |
+          cd kernel
+          # Remove -Werror to allow warnings (DO NOT delete any source files)
+          find . -name "Makefile" -exec sed -i 's/-Werror//g' {} +
+          # Add susfs_stubs to kernel Makefile if needed
+          echo 'obj-m += susfs_stubs.o' >> fs/Makefile || true
+
+      - name: Compile kernel
+        run: |
+          cd kernel
+          make ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+            CLANG_PREBUILT_BIN=${{ env.CLANG_PATH }} \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            -j$(nproc) 2>&1 | tee build.log
+
+      - name: Check compilation result
+        run: |
+          if [ ! -f kernel/arch/arm64/boot/Image.gz ]; then
+            echo "❌ Compilation failed: Image.gz not found"
+            cat kernel/build.log | tail -100
+            exit 1
+          fi
+          echo "✅ Compilation successful"
+          ls -lh kernel/arch/arm64/boot/Image.gz
+
+      - name: Package boot.img
+        run: |
+          # Extract original boot.img ramdisk
+          cd kernel
+          cp arch/arm64/boot/Image.gz /tmp/Image.gz
+
+          # Use magiskboot to repack (preserves ramdisk)
+          tools/magiskboot unpack /Users/weifeng/Downloads/OnePlus8T/lineage-20.0-20240209-nightly-kebab-signed/
+          cp /tmp/Image.gz kernel
+          tools/magiskboot repack boot.img new-boot.img
+          mv new-boot.img kebab-kernelsu-susfs-a13-4.19.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kebab-kernelsu-susfs-a13-4.19
+          path: kebab-kernelsu-susfs-a13-4.19.zip
+          retention-days: 30

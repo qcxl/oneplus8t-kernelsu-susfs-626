@@ -134,8 +134,8 @@ jobs:
           # put_task_struct needs linux/sched.h include in kernel 4.19
           if [ -f "drivers/kernelsu/policy/allowlist.c" ]; then
             sed -i 's/TWA_RESUME/0/g' drivers/kernelsu/policy/allowlist.c
-            grep -q "#include <linux/sched.h>" drivers/kernelsu/policy/allowlist.c || \
-              sed -i '/#include <linux\/task_work.h>/a #include <linux/sched.h>' drivers/kernelsu/policy/allowlist.c
+            grep -q "put_task_struct" drivers/kernelsu/policy/allowlist.c && \
+              sed -i '1i #ifndef put_task_struct\n#define put_task_struct(x) do {} while(0)\n#endif' drivers/kernelsu/policy/allowlist.c
           fi
 
           # Ensure susfs.o is in fs/Makefile

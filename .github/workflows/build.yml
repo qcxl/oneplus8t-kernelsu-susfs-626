@@ -138,6 +138,12 @@ jobs:
               sed -i '1i #ifndef put_task_struct\n#define put_task_struct(x) do {} while(0)\n#endif' drivers/kernelsu/policy/allowlist.c
           fi
 
+          # Fix seccomp.filter_count for kernel 4.19 compatibility
+          # filter_count was added to struct seccomp in kernel 5.x, not available in 4.19
+          if [ -f "drivers/kernelsu/policy/app_profile.c" ]; then
+            sed -i 's/atomic_set(&current->seccomp.filter_count, 0);/\/\/ atomic_set(&current->seccomp.filter_count, 0); \/* not available in kernel 4.19 *\//' drivers/kernelsu/policy/app_profile.c
+          fi
+
           # Ensure susfs.o is in fs/Makefile
           if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*susfs\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' >> fs/Makefile

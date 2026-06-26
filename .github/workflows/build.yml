@@ -39,7 +39,13 @@ jobs:
       - name: Apply KernelSU patch
         run: |
           cd kernel
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+          # Use weishu's KernelSU (official) which is compatible with SUSFS patches
+          git clone https://github.com/tiann/KernelSU.git KernelSU
+          cd KernelSU
+          git checkout "$(git describe --abbrev=0 --tags)"
+          cd ..
+          ln -sf "$(pwd)/KernelSU/kernel" drivers/kernelsu
+          grep -q "kernelsu" Makefile || echo "obj-\$(CONFIG_KSU) += kernelsu/" >> Makefile
 
       - name: Apply SUSFS patch
         run: |

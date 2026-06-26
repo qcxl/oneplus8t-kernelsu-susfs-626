@@ -160,6 +160,12 @@ jobs:
             sed -i 's/selinux_cred(cred)/((struct task_security_struct *)cred->security)/g' drivers/kernelsu/selinux/selinux.c
           fi
 
+          # Replace rules.c with kernel 4.19 compatible stub
+          # The original uses selinux_state.policy which doesn't exist in kernel 4.19
+          if [ -f "drivers/kernelsu/selinux/rules.c" ]; then
+            cp ../kernel-patches/rules_stub.c drivers/kernelsu/selinux/rules.c
+          fi
+
           # Ensure susfs.o is in fs/Makefile
           if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*susfs\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' >> fs/Makefile

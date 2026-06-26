@@ -144,6 +144,15 @@ jobs:
             sed -i 's/atomic_set(&current->seccomp.filter_count, 0);/\/\/ atomic_set(&current->seccomp.filter_count, 0); \/* not available in kernel 4.19 *\//' drivers/kernelsu/policy/app_profile.c
           fi
 
+          # Fix nofault user memory functions for kernel 4.19 compatibility
+          # strncpy_from_user_nofault, copy_from_user_nofault, copy_to_user_nofault
+          # were introduced in kernel 5.x, not available in 4.19
+          if [ -f "drivers/kernelsu/runtime/ksud_integration.c" ]; then
+            sed -i 's/strncpy_from_user_nofault(/strncpy_from_user(/g' drivers/kernelsu/runtime/ksud_integration.c
+            sed -i 's/copy_from_user_nofault(/copy_from_user(/g' drivers/kernelsu/runtime/ksud_integration.c
+            sed -i 's/copy_to_user_nofault(/copy_to_user(/g' drivers/kernelsu/runtime/ksud_integration.c
+          fi
+
           # Ensure susfs.o is in fs/Makefile
           if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*susfs\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' >> fs/Makefile

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * file_wrapper.c - Kernel 4.19 compatibility stubs
  *
@@ -64,6 +64,25 @@ int ksu_install_file_wrapper(struct file *file)
     return 0;
 }
 EXPORT_SYMBOL(ksu_install_file_wrapper);
+
+/* Kernel 4.19 compatibility stubs for missing kernel internal functions */
+int path_mount(const char *dev_name, struct path *path, const char *type_page,
+               unsigned long flags, void *data_page)
+{
+    pr_info("ksu: path_mount stub (kernel 4.19)\n");
+    return -EOPNOTSUPP;
+}
+
+int path_umount(struct path *path, int flags)
+{
+    pr_info("ksu: path_umount stub (kernel 4.19)\n");
+    return -EOPNOTSUPP;
+}
+
+void seccomp_filter_release(struct task_struct *tsk, int flags)
+{
+    pr_info("ksu: seccomp_filter_release stub (kernel 4.19)\n");
+}
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("KSU file wrapper stubs for kernel 4.19");

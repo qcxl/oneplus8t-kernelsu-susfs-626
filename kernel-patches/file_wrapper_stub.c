@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0-only */
+// SPDX-License-Identifier: GPL-2.0
 /*
  * file_wrapper.c - Kernel 4.19 compatibility stubs
  *
@@ -46,6 +46,24 @@ void *ksu_get_inode_security(struct inode *inode, struct inode *inode_out)
     return NULL;
 }
 EXPORT_SYMBOL(ksu_get_inode_security);
+
+int __init ksu_file_wrapper_init(void)
+{
+    pr_info("ksu: file_wrapper_init stub (kernel 4.19)\n");
+    return 0;
+}
+
+void __exit ksu_file_wrapper_exit(void)
+{
+    pr_info("ksu: file_wrapper_exit stub (kernel 4.19)\n");
+}
+
+int ksu_install_file_wrapper(struct file *file)
+{
+    pr_info("ksu: install_file_wrapper stub (kernel 4.19)\n");
+    return 0;
+}
+EXPORT_SYMBOL(ksu_install_file_wrapper);
 
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("KSU file wrapper stubs for kernel 4.19");

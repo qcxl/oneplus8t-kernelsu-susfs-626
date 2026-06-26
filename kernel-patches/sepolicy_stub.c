@@ -19,3 +19,8 @@ void ksu_reset_sepolicy(struct selinux_state *state)
 {
     pr_info("ksu: ksu_reset_sepolicy stub (kernel 4.19)\n");
 }
+
+void handle_sepolicy(struct selinux_state *state)
+{
+    pr_info("ksu: handle_sepolicy stub (kernel 4.19)\n");
+}

@@ -195,6 +195,13 @@ jobs:
             cp ../kernel-patches/selinux_hide_stub.c drivers/kernelsu/feature/selinux_hide.c
           fi
 
+          # Add kernel 4.19 compatibility stubs for missing kernel internal functions
+          # path_mount, path_umount, seccomp_filter_release are not available in 4.19
+          cp ../kernel-patches/kernel_compat_stub.c drivers/kernelsu/infra/kernel_compat_stub.c
+          if [ -f "drivers/kernelsu/infra/Makefile" ] && ! grep -q "kernel_compat_stub.o" drivers/kernelsu/infra/Makefile; then
+            echo 'obj-$(CONFIG_KSU) += kernel_compat_stub.o' >> drivers/kernelsu/infra/Makefile
+          fi
+
           # Ensure susfs.o is in fs/Makefile
           if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*susfs\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' >> fs/Makefile

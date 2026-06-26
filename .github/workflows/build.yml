@@ -104,60 +104,7 @@ jobs:
             sed -i 's|copy_to_kernel_nofault(|memcpy(|g' drivers/kernelsu/hook/arm64/patch_memory.c
           fi
           if [ -f "drivers/kernelsu/infra/file_wrapper.c" ]; then
-            cat > drivers/kernelsu/infra/file_wrapper.c << 'EOF'
-// SPDX-License-Identifier: GPL-2.0-only
-/*
- * file_wrapper.c - Kernel 4.19 compatibility stubs
- *
- * SukiSU-Ultra's file_wrapper.c uses kernel 5.x APIs not available in 4.19.
- * This file provides stub implementations for kernel 4.19.
- */
-
-#include <linux/module.h>
-#include <linux/kernel.h>
-#include <linux/fs.h>
-#include <linux/slab.h>
-#include <linux/security.h>
-
-struct ksu_file_operations {
-    struct file_operations *f_op;
-};
-
-void ksu_wrapper_iopoll(struct kiocb *kiocb, bool spin)
-{
-    pr_info("ksu: iopoll stub\n");
-}
-EXPORT_SYMBOL(ksu_wrapper_iopoll);
-
-ssize_t ksu_wrapper_remap_file_range(struct file *file_in, loff_t pos_in,
-                                      struct file *file_out, loff_t pos_out,
-                                      size_t len, unsigned int remap_flags)
-{
-    pr_info("ksu: remap_file_range stub\n");
-    return -EOPNOTSUPP;
-}
-EXPORT_SYMBOL(ksu_wrapper_remap_file_range);
-
-int ksu_wrapper_init_security(struct inode *inode, struct inode *dir,
-                               struct qstr *qname, const char **name,
-                               size_t *len, umode_t mode, void **context)
-{
-    pr_info("ksu: init_security stub\n");
-    return -EOPNOTSUPP;
-}
-EXPORT_SYMBOL(ksu_wrapper_init_security);
-
-void *ksu_get_inode_security(struct inode *inode, struct inode *inode_out)
-{
-    pr_info("ksu: get_inode_security stub\n");
-    return NULL;
-}
-EXPORT_SYMBOL(ksu_get_inode_security);
-
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("KSU file wrapper stubs for kernel 4.19");
-MODULE_AUTHOR("SukiSU-Ultra");
-EOF
+            echo "LyogU1BEWC1MaWNlbnNlLUlkZW50aWZpZXI6IEdQTC0yLjAtb25seSAqLwovKgogKiBmaWxlX3dyYXBwZXIuYyAtIEtlcm5lbCA0LjE5IGNvbXBhdGliaWxpdHkgc3R1YnMKICoKICogU3VraVNVLVVsdHJhJ3MgZmlsZV93cmFwcGVyLmMgdXNlcyBrZXJuZWwgNS54IEFQSXMgbm90IGF2YWlsYWJsZSBpbiA0LjE5LgogKiBUaGlzIGZpbGUgcHJvdmlkZXMgc3R1YiBpbXBsZW1lbnRhdGlvbnMgZm9yIGtlcm5lbCA0LjE5LgogKi8KCiNpbmNsdWRlIDxsaW51eC9tb2R1bGUuaD4KI2luY2x1ZGUgPGxpbnV4L2tlcm5lbC5oPgojaW5jbHVkZSA8bGludXgvZnMuaD4KI2luY2x1ZGUgPGxpbnV4L3NsYWIuaD4KI2luY2x1ZGUgPGxpbnV4L3NlY3VyaXR5Lmg+CgpzdHJ1Y3Qga3N1X2ZpbGVfb3BlcmF0aW9ucyB7CiAgICBzdHJ1Y3QgZmlsZV9vcGVyYXRpb25zICpmX29wOwp9OwoKdm9pZCBrc3Vfd3JhcHBlcl9pb3BvbGwoc3RydWN0IGtpb2NiICpraW9jYiwgYm9vbCBzcGluKQp7CiAgICBwcl9pbmZvKCJrc3U6IGlvcG9sbCBzdHViCiIpOwp9CkVYUE9SVF9TWU1CT0woa3N1X3dyYXBwZXJfaW9wb2xsKTsKCnNzaXplX3Qga3N1X3dyYXBwZXJfcmVtYXBfZmlsZV9yYW5nZShzdHJ1Y3QgZmlsZSAqZmlsZV9pbiwgbG9mZl90IHBvc19pbiwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdHJ1Y3QgZmlsZSAqZmlsZV9vdXQsIGxvZmZfdCBwb3Nfb3V0LAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNpemVfdCBsZW4sIHVuc2lnbmVkIGludCByZW1hcF9mbGFncykKewogICAgcHJfaW5mbygia3N1OiByZW1hcF9maWxlX3JhbmdlIHN0dWIKIik7CiAgICByZXR1cm4gLUVPUE5PVFNVUFA7Cn0KRVhQT1JUX1NZTUJPTChrc3Vfd3JhcHBlcl9yZW1hcF9maWxlX3JhbmdlKTsKCmludCBrc3Vfd3JhcHBlcl9pbml0X3NlY3VyaXR5KHN0cnVjdCBpbm9kZSAqaW5vZGUsIHN0cnVjdCBpbm9kZSAqZGlyLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgc3RydWN0IHFzdHIgKnFuYW1lLCBjb25zdCBjaGFyICoqbmFtZSwKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNpemVfdCAqbGVuLCB1bW9kZV90IG1vZGUsIHZvaWQgKipjb250ZXh0KQp7CiAgICBwcl9pbmZvKCJrc3U6IGluaXRfc2VjdXJpdHkgc3R1YgoiKTsKICAgIHJldHVybiAtRU9QTk9UU1VQUDsKfQpFWFBPUlRfU1lNQk9MKGtzdV93cmFwcGVyX2luaXRfc2VjdXJpdHkpOwoKdm9pZCAqa3N1X2dldF9pbm9kZV9zZWN1cml0eShzdHJ1Y3QgaW5vZGUgKmlub2RlLCBzdHJ1Y3QgaW5vZGUgKmlub2RlX291dCkKewogICAgcHJfaW5mbygia3N1OiBnZXRfaW5vZGVfc2VjdXJpdHkgc3R1YgoiKTsKICAgIHJldHVybiBOVUxMOwp9CkVYUE9SVF9TWU1CT0woa3N1X2dldF9pbm9kZV9zZWN1cml0eSk7CgpNT0RVTEVfTElDRU5TRSgiR1BMIik7Ck1PRFVMRV9ERVNDUklQVElPTigiS1NVIGZpbGUgd3JhcHBlciBzdHVicyBmb3Iga2VybmVsIDQuMTkiKTsKTU9EVUxFX0FVVEhPUigiU3VraVNVLVVsdHJhIik7Cg==" | base64 -d > drivers/kernelsu/infra/file_wrapper.c
           fi
 
           # Ensure susfs.o is in fs/Makefile

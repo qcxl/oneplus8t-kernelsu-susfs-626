@@ -1,8 +1,12 @@
-name: Build KernelSU + SUSFS Kernel for OnePlus 8T (kebab)
+name: Build KSU + SUSFS Kernel for OnePlus 8T (kebab)
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'kernel-patches/ksu.config'
+      - 'kernel-patches/ksu.config.minimal'
+      - 'kernel-patches/**'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -33,15 +37,6 @@ jobs:
             gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             lld llvm binutils
 
-      - name: Setup toolchain
-        run: |
-          # Use system clang on Ubuntu 22.04 (clang 14) to match original kernel
-          # Original kernel uses: Android (8490178, based on r450784d) clang version 14.0.6
-          echo "Using system clang: $(clang --version | head -1)"
-          which clang
-          clang --version
-          echo "CLANG_DIR=/usr" >> $GITHUB_ENV
-
       - name: Clone SUSFS (kernel-4.19 branch)
         run: |
           git clone --depth 1 -b kernel-4.19 https://gitlab.com/simonpunk/susfs4ksu.git susfs
@@ -54,60 +49,41 @@ jobs:
       - name: Integrate SukiSU-Ultra
         working-directory: kernel
         run: |
-          if grep -q "CONFIG_KSU=y" ../kernel-patches/ksu.config 2>/dev/null || \
-             grep -q "CONFIG_KSU=y" ../kernel-patches/ksu.config.minimal 2>/dev/null || \
-             grep -q "CONFIG_KSU=y" ../kernel-patches/ksu.config.pure 2>/dev/null; then
-            echo "KSU config detected, integrating SukiSU-Ultra..."
-            curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
-              | bash -s main
-            if ! grep -q "drivers/kernelsu" drivers/Makefile 2>/dev/null; then
-              echo 'obj-$(CONFIG_KSU) += kernelsu/' >> drivers/Makefile
-            fi
-            if ! grep -q "kernelsu/Kconfig" drivers/Kconfig 2>/dev/null; then
-              sed -i '/endmenu/i source "drivers/kernelsu/Kconfig"' drivers/Kconfig
-            fi
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" \
+            | bash -s main
+          if ! grep -q "drivers/kernelsu" drivers/Makefile 2>/dev/null; then
+            echo 'obj-$(CONFIG_KSU) += kernelsu/' >> drivers/Makefile
+          fi
+          if ! grep -q "kernelsu/Kconfig" drivers/Kconfig 2>/dev/null; then
+            sed -i '/endmenu/i source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+          fi
 
-            # Create stub core_hook.h for SUSFS compatibility
-            # SukiSU-Ultra builtin branch doesn't have this file but SUSFS expects it
-            if [ -L "drivers/kernelsu" ] && [ ! -f "drivers/kernelsu/core_hook.h" ]; then
-              echo '#ifndef _CORE_HOOK_H_' > drivers/kernelsu/core_hook.h
-              echo '#define _CORE_HOOK_H_' >> drivers/kernelsu/core_hook.h
-              echo '/* Stub header for SUSFS compatibility with SukiSU-Ultra builtin branch */' >> drivers/kernelsu/core_hook.h
-              echo '#endif' >> drivers/kernelsu/core_hook.h
-            fi
-          else
-            echo "Vanilla config detected, skipping SukiSU-Ultra integration"
+          # Create stub core_hook.h for SUSFS compatibility
+          if [ -L "drivers/kernelsu" ] && [ ! -f "drivers/kernelsu/core_hook.h" ]; then
+            echo '#ifndef _CORE_HOOK_H_' > drivers/kernelsu/core_hook.h
+            echo '#define _CORE_HOOK_H_' >> drivers/kernelsu/core_hook.h
+            echo '/* Stub header for SUSFS compatibility with SukiSU-Ultra builtin branch */' >> drivers/kernelsu/core_hook.h
+            echo '#endif' >> drivers/kernelsu/core_hook.h
           fi
 
       - name: Apply SUSFS patches
         working-directory: kernel
         run: |
-          if grep -q "CONFIG_KSU=y" ../kernel-patches/ksu.config 2>/dev/null || \
-             grep -q "CONFIG_KSU=y" ../kernel-patches/ksu.config.minimal 2>/dev/null || \
-             grep -q "CONFIG_KSU=y" ../kernel-patches/ksu.config.pure 2>/dev/null; then
-            echo "KSU config detected, applying SUSFS patches..."
-            set -euo pipefail
+          set -euo pipefail
 
-          # Apply SUSFS kernel 4.19 integration patch first (adds VFS hooks)
-          if [ -f "../susfs/kernel_patches/50_add_susfs_in_kernel-4.19.patch" ]; then
-            cp ../susfs/kernel_patches/50_add_susfs_in_kernel-4.19.patch .
-            patch -p1 --forward --fuzz=3 < 50_add_susfs_in_kernel-4.19.patch || true
-          fi
+          cp ../susfs/kernel_patches/50_add_susfs_in_kernel-4.19.patch .
+          patch -p1 --forward --fuzz=3 < 50_add_susfs_in_kernel-4.19.patch || true
 
-          # Copy SUSFS source files (kernel-4.19 branch)
           cp ../susfs/kernel_patches/fs/susfs.c fs/
           cp ../susfs/kernel_patches/fs/sus_su.c fs/
           cp ../susfs/kernel_patches/include/linux/susfs.h include/linux/
           cp ../susfs/kernel_patches/include/linux/sus_su.h include/linux/
           cp ../susfs/kernel_patches/include/linux/susfs_def.h include/linux/
 
-          # Fix MODULE_IMPORT_NS for kernel 4.19 compatibility
-          # This macro is not available in kernel 4.19
           if [ -f "drivers/kernelsu/core/init.c" ]; then
             sed -i 's/^MODULE_IMPORT_NS.*$/\/\/ MODULE_IMPORT_NS not supported in kernel 4.19/' drivers/kernelsu/core/init.c
           fi
 
-          # Fix linux/pgtable.h, strncpy_from_user_nofault, copy_to_kernel_nofault for kernel 4.19
           if [ -f "drivers/kernelsu/feature/sucompat.c" ]; then
             sed -i 's|#include <linux/pgtable.h>|/* #include <linux/pgtable.h> not available in kernel 4.19 */|' drivers/kernelsu/feature/sucompat.c
             sed -i 's|strncpy_from_user_nofault(|strncpy_from_user(|g' drivers/kernelsu/feature/sucompat.c
@@ -115,117 +91,80 @@ jobs:
           if [ -f "drivers/kernelsu/hook/arm64/patch_memory.c" ]; then
             sed -i 's|copy_to_kernel_nofault(|memcpy(|g' drivers/kernelsu/hook/arm64/patch_memory.c
           fi
-           # Replace file_wrapper.c with kernel 4.19 stubs
-           # The original uses kernel 5.x APIs (iopoll, remap_file_range, etc.)
-           # Also includes stubs for path_mount, path_umount, seccomp_filter_release
-           if [ -f "drivers/kernelsu/infra/file_wrapper.c" ]; then
-             cp ../kernel-patches/file_wrapper_stub.c drivers/kernelsu/infra/file_wrapper.c
-           fi
+          if [ -f "drivers/kernelsu/infra/file_wrapper.c" ]; then
+            cp ../kernel-patches/file_wrapper_stub.c drivers/kernelsu/infra/file_wrapper.c
+          fi
 
-          # Fix SECCOMP_ARCH_NATIVE_NR for kernel 4.19 compatibility
-          # This constant is not defined in kernel 4.19 headers
           if [ -f "drivers/kernelsu/infra/seccomp_cache.c" ]; then
             grep -q "SECCOMP_ARCH_NATIVE_NR" drivers/kernelsu/infra/seccomp_cache.c && \
               sed -i '1i #ifndef SECCOMP_ARCH_NATIVE_NR\n#define SECCOMP_ARCH_NATIVE_NR 400\n#endif' drivers/kernelsu/infra/seccomp_cache.c
           fi
 
-          # Fix uapi/linux/mount.h for kernel 4.19 compatibility
-          # uapi/linux/mount.h was introduced in kernel 5.x, not available in 4.19
-          # In kernel 4.19, mount definitions are in linux/mount.h
           if [ -f "drivers/kernelsu/infra/su_mount_ns.c" ]; then
             sed -i 's|#include <uapi/linux/mount.h>|#include <linux/mount.h>|' drivers/kernelsu/infra/su_mount_ns.c
           fi
 
-          # Replace pkg_observer.c with kernel 4.19 compatible version
-          # The original uses handle_inode_event which doesn't exist in kernel 4.19
           if [ -f "drivers/kernelsu/manager/pkg_observer.c" ]; then
             cp ../kernel-patches/pkg_observer_stub.c drivers/kernelsu/manager/pkg_observer.c
           fi
 
-          # Fix TWA_RESUME and put_task_struct for kernel 4.19 compatibility
-          # TWA_RESUME was introduced in kernel 5.3, not available in 4.19
-          # put_task_struct needs linux/sched.h include in kernel 4.19
           if [ -f "drivers/kernelsu/policy/allowlist.c" ]; then
             sed -i 's/TWA_RESUME/0/g' drivers/kernelsu/policy/allowlist.c
             grep -q "put_task_struct" drivers/kernelsu/policy/allowlist.c && \
               sed -i '1i #ifndef put_task_struct\n#define put_task_struct(x) do {} while(0)\n#endif' drivers/kernelsu/policy/allowlist.c
           fi
 
-          # Fix seccomp.filter_count for kernel 4.19 compatibility
-          # filter_count was added to struct seccomp in kernel 5.x, not available in 4.19
           if [ -f "drivers/kernelsu/policy/app_profile.c" ]; then
             sed -i 's/atomic_set(&current->seccomp.filter_count, 0);/\/\/ atomic_set(&current->seccomp.filter_count, 0); \/* not available in kernel 4.19 *\//' drivers/kernelsu/policy/app_profile.c
           fi
 
-          # Fix nofault user memory functions for kernel 4.19 compatibility
-          # strncpy_from_user_nofault, copy_from_user_nofault, copy_to_user_nofault
-          # were introduced in kernel 5.x, not available in 4.19
           if [ -f "drivers/kernelsu/runtime/ksud_integration.c" ]; then
-            sed -i 's/strncpy_from_user_nofault(/strncpy_from_user(/g' drivers/kernelsu/runtime/ksud_integration.c
-            sed -i 's/copy_from_user_nofault(/copy_from_user(/g' drivers/kernelsu/runtime/ksud_integration.c
-            sed -i 's/copy_to_user_nofault(/copy_to_user(/g' drivers/kernelsu/runtime/ksud_integration.c
+            sed -i 's|strncpy_from_user_nofault(|strncpy_from_user(|g' drivers/kernelsu/runtime/ksud_integration.c
+            sed -i 's|copy_from_user_nofault(|copy_from_user(|g' drivers/kernelsu/runtime/ksud_integration.c
+            sed -i 's|copy_to_user_nofault(|copy_to_user(|g' drivers/kernelsu/runtime/ksud_integration.c
           fi
 
-          # Fix selinux_cred for kernel 4.19 compatibility
-          # selinux_cred was introduced in kernel 5.x, not available in 4.19
-          # In kernel 4.19, use cred->security directly
           if [ -f "drivers/kernelsu/selinux/selinux.c" ]; then
             sed -i 's/selinux_cred(cred)/((struct task_security_struct *)cred->security)/g' drivers/kernelsu/selinux/selinux.c
           fi
 
-          # Replace rules.c with kernel 4.19 compatible stub
-          # The original uses selinux_state.policy which doesn't exist in kernel 4.19
           if [ -f "drivers/kernelsu/selinux/rules.c" ]; then
             cp ../kernel-patches/rules_stub.c drivers/kernelsu/selinux/rules.c
           fi
 
-          # Replace sepolicy.c with kernel 4.19 compatible stub
-          # The original uses kernel 5.x SELinux APIs (flex_array, filename_trans, etc.)
           if [ -f "drivers/kernelsu/selinux/sepolicy.c" ]; then
             cp ../kernel-patches/sepolicy_stub.c drivers/kernelsu/selinux/sepolicy.c
           fi
 
-          # Replace event.c with kernel 4.19 compatible stub
-          # The original uses linux/minmax.h, linux/overflow.h, strncpy_from_user_nofault
           if [ -f "drivers/kernelsu/sulog/event.c" ]; then
             cp ../kernel-patches/event_stub.c drivers/kernelsu/sulog/event.c
           fi
 
-          # Fix do_set_init_pgrp for kernel 4.19 compatibility
-          # tasklist_lock, task_pgrp, init_task, task_session are not available in 4.19
           if [ -f "drivers/kernelsu/supercall/dispatch.c" ]; then
             sed -i '/static int do_set_init_pgrp/,/^}$/c static int do_set_init_pgrp(void __user *arg)\n{\n    return -EOPNOTSUPP;\n}' drivers/kernelsu/supercall/dispatch.c
           fi
 
-          # Fix TWA_RESUME in supercall.c for kernel 4.19 compatibility
           if [ -f "drivers/kernelsu/supercall/supercall.c" ]; then
             sed -i 's/TWA_RESUME/0/g' drivers/kernelsu/supercall/supercall.c
           fi
 
-          # Replace selinux_hide.c with kernel 4.19 compatible stub
-          # The original uses kernel 5.x SELinux APIs (status_lock, status_page, etc.)
           if [ -f "drivers/kernelsu/feature/selinux_hide.c" ]; then
             cp ../kernel-patches/selinux_hide_stub.c drivers/kernelsu/feature/selinux_hide.c
           fi
 
-           # Ensure susfs.o is in fs/Makefile
           if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*susfs\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs.o' >> fs/Makefile
           fi
 
-          # Ensure sus_su.o is in fs/Makefile
-          if [ -f "fs/sus_su.c" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*sus_su\.o' fs/Makefile; then
+          if [ -f "fs/Makefile" ] && ! grep -qE '^obj-\$\(CONFIG_KSU_SUSFS\).*sus_su\.o' fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += sus_su.o' >> fs/Makefile
           fi
 
-          # Add SUSFS compatibility stubs for functions missing in kernel-4.19 branch
-          # SukiSU-Ultra builtin dispatch.c calls newer SUSFS APIs not in kernel-4.19
           cp ../kernel-patches/susfs_stubs.c fs/
           if [ -f "fs/Makefile" ] && ! grep -q "susfs_stubs.o" fs/Makefile; then
             echo 'obj-$(CONFIG_KSU_SUSFS) += susfs_stubs.o' >> fs/Makefile
           fi
 
-          # Add missing SUSFS constants for kernel-4.19 compatibility
           if [ -f "include/linux/susfs_def.h" ]; then
             grep -q "CMD_SUSFS_ADD_SUS_PATH_LOOP" include/linux/susfs_def.h || \
               echo '#define CMD_SUSFS_ADD_SUS_PATH_LOOP 0x55551' >> include/linux/susfs_def.h
@@ -239,7 +178,6 @@ jobs:
               echo '#define SUSFS_MAGIC 0x53485300' >> include/linux/susfs_def.h
           fi
 
-          # Add missing SUSFS function declarations for kernel-4.19 compatibility
           if [ -f "include/linux/susfs.h" ]; then
             grep -q "susfs_start_sdcard_monitor_fn" include/linux/susfs.h || \
               echo 'int susfs_start_sdcard_monitor_fn(void);' >> include/linux/susfs.h
@@ -275,12 +213,10 @@ jobs:
               echo 'long strncpy_from_user_nofault(char *dst, const void __user *unsafe_addr, long count);' >> include/linux/susfs.h
           fi
 
-          # Fix fallthrough macro in allowlist.c (kernel 4.19 compatibility)
           if [ -f "drivers/kernelsu/policy/allowlist.c" ]; then
             sed -i 's/^\s*fallthrough;/\t\t\/\* fall through \*\//g' drivers/kernelsu/policy/allowlist.c
           fi
 
-          # Fix pointer type casts in dispatch.c (void** -> typed struct pointers)
           if [ -f "drivers/kernelsu/supercall/dispatch.c" ]; then
             sed -i 's/susfs_add_sus_path(arg)/susfs_add_sus_path((struct st_susfs_sus_path __user *)arg)/g' drivers/kernelsu/supercall/dispatch.c
             sed -i 's/susfs_add_sus_kstat(arg)/susfs_add_sus_kstat((struct st_susfs_sus_kstat __user *)arg)/g' drivers/kernelsu/supercall/dispatch.c
@@ -288,13 +224,10 @@ jobs:
             sed -i 's/susfs_add_sus_kstat(arg)/susfs_add_sus_kstat((struct st_susfs_sus_kstat __user *)arg)/g' drivers/kernelsu/supercall/dispatch.c
             sed -i 's/susfs_set_uname(arg)/susfs_set_uname((struct st_susfs_uname __user *)arg)/g' drivers/kernelsu/supercall/dispatch.c
             sed -i 's/susfs_set_cmdline_or_bootconfig(arg)/susfs_set_cmdline_or_bootconfig((char __user *)arg)/g' drivers/kernelsu/supercall/dispatch.c
-             sed -i 's/susfs_add_open_redirect(arg)/susfs_add_open_redirect((struct st_susfs_open_redirect __user *)arg)/g' drivers/kernelsu/supercall/dispatch.c
-           fi
-          else
-            echo "Vanilla config detected, skipping SUSFS patches"
+            sed -i 's/susfs_add_open_redirect(arg)/susfs_add_open_redirect((struct st_susfs_open_redirect __user *)arg)/g' drivers/kernelsu/supercall/dispatch.c
           fi
 
-      - name: Configure kernel (PURE ORIGINAL CONFIG - no KSU/SUSFS)
+      - name: Configure kernel (KSU + SUSFS)
         working-directory: kernel
         run: |
           export PATH="/usr/lib/ccache:$PATH"
@@ -315,8 +248,7 @@ jobs:
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             vendor/kona-perf_defconfig
 
-          # Use pure original config (extracted from running device, KSU/SUSFS removed)
-          cp ../kernel-patches/ksu.config.pure out/.config
+          ./scripts/kconfig/merge_config.sh -m -O out out/.config ../kernel-patches/ksu.config || true
 
           make O=out ARCH=arm64 \
             CC="ccache clang" \
@@ -340,8 +272,6 @@ jobs:
           export LLVM_IAS=1
           export KCFLAGS="-fno-pic"
 
-          # Create compiler wrapper that strips -Werror flags
-          # This preserves all driver functionality while fixing compilation
           mkdir -p /tmp/ksu-build/bin
           cat > /tmp/ksu-build/bin/clang << 'WRAPPER'
           #!/bin/bash
@@ -389,14 +319,6 @@ jobs:
             fi
             ls -lh out/arch/arm64/boot/
 
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log-${{ github.run_id }}
-          path: kernel/build.log
-          retention-days: 7
-
       - name: Prepare artifact
         run: |
             mkdir -p artifact
@@ -414,11 +336,3 @@ jobs:
           name: kebab-kernelsu-susfs-a13-4.19
           path: kebab-kernelsu-susfs-a13-4.19.zip
           retention-days: 30
-
-      - name: Upload build log on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log-kebab
-          path: kernel/build.log
-          if-no-files-found: ignore

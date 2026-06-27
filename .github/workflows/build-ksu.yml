@@ -247,14 +247,13 @@ jobs:
       - name: Configure kernel (KSU + SUSFS)
         working-directory: kernel
         run: |
-          export PATH="/usr/lib/ccache:$PATH"
+          export PATH="/tmp/clang-r450784d/bin:/usr/lib/ccache:$PATH"
           export ARCH=arm64
           export LLVM=1
           export LLVM_IAS=1
-          export CLANG_PREBUILT_BIN="/tmp/clang-r450784d/bin"
 
           make O=out ARCH=arm64 \
-            CLANG_PREBUILT_BIN="$CLANG_PREBUILT_BIN" \
+            CC=clang \
             LD=ld.lld \
             AR=llvm-ar \
             NM=llvm-nm \
@@ -269,7 +268,7 @@ jobs:
           ./scripts/kconfig/merge_config.sh -m -O out out/.config ../kernel-patches/ksu.config || true
 
           make O=out ARCH=arm64 \
-            CLANG_PREBUILT_BIN="$CLANG_PREBUILT_BIN" \
+            CC=clang \
             LD=ld.lld \
             AR=llvm-ar \
             NM=llvm-nm \
@@ -284,24 +283,23 @@ jobs:
       - name: Build kernel
         working-directory: kernel
         run: |
-          export PATH="/usr/lib/ccache:$PATH"
+          export PATH="/tmp/clang-r450784d/bin:/usr/lib/ccache:$PATH"
           export ARCH=arm64
           export LLVM=1
           export LLVM_IAS=1
           export KCFLAGS="-fno-pic"
-          export CLANG_PREBUILT_BIN="/tmp/clang-r450784d/bin"
 
           # ld.lld wrapper: allow multiple definitions (DRM + techpack tracepoint)
           mkdir -p /tmp/ksu-build/bin
           cat > /tmp/ksu-build/bin/ld.lld << 'LDWRAP'
           #!/bin/bash
-          exec /usr/bin/ld.lld --allow-multiple-definition "$@"
+          exec /tmp/clang-r450784d/bin/ld.lld --allow-multiple-definition "$@"
           LDWRAP
           chmod +x /tmp/ksu-build/bin/ld.lld
           export PATH="/tmp/ksu-build/bin:$PATH"
 
           make -j"$(nproc --all)" O=out ARCH=arm64 \
-            CLANG_PREBUILT_BIN="$CLANG_PREBUILT_BIN" \
+            CC=clang \
             LD=ld.lld \
             AR=llvm-ar \
             NM=llvm-nm \

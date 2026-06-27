@@ -307,6 +307,15 @@ jobs:
           export KCFLAGS="-fno-pic"
           export CLANG_PREBUILT_BIN="/tmp/clang-r450784d/bin"
 
+          # ld.lld wrapper: allow multiple definitions (DRM + techpack tracepoint)
+          mkdir -p /tmp/ksu-build/bin
+          cat > /tmp/ksu-build/bin/ld.lld << 'LDWRAP'
+          #!/bin/bash
+          exec /usr/bin/ld.lld --allow-multiple-definition "$@"
+          LDWRAP
+          chmod +x /tmp/ksu-build/bin/ld.lld
+          export PATH="/tmp/ksu-build/bin:$PATH"
+
           make -j"$(nproc --all)" O=out ARCH=arm64 \
             CLANG_PREBUILT_BIN="$CLANG_PREBUILT_BIN" \
             LD=ld.lld \

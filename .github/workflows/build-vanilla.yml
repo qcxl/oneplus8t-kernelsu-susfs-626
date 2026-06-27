@@ -67,10 +67,8 @@ jobs:
           sed -i '/^int msm_dss_get_clk/,/^}/d' techpack/display/msm/sde_io_util.c
           sed -i '/^int msm_dss_clk_set_rate/,/^}/d' techpack/display/msm/sde_io_util.c
           sed -i '/^int msm_dss_enable_clk/,/^}/d' techpack/display/msm/sde_io_util.c
-          # Disable duplicate __tracepoint_tracing_mark_write in DRM trace header
-          # (techpack display also includes it, causing duplicate at link time)
-          sed -i '/^TRACE_EVENT(tracing_mark_write/,/^);/s/^/\/\//' \
-            drivers/gpu/drm/msm/disp/dpu1/dpu_trace.h
+          # Allow duplicate tracepoint symbols from DRM + techpack
+          echo 'export LDFLAGS_vmlinux = --allow-multiple-definition' > out/Makefile 2>/dev/null || true
           echo "=== Patches applied ==="
 
       - name: Configure kernel (PURE ORIGINAL CONFIG - no KSU/SUSFS)
@@ -119,6 +117,15 @@ jobs:
           export LLVM_IAS=1
           export KCFLAGS="-fno-pic"
           export CLANG_PREBUILT_BIN="/tmp/clang-r450784d/bin"
+
+          # ld.lld wrapper: allow multiple definitions (DRM + techpack tracepoint)
+          mkdir -p /tmp/ksu-build/bin
+          cat > /tmp/ksu-build/bin/ld.lld << 'LDWRAP'
+          #!/bin/bash
+          exec /usr/bin/ld.lld --allow-multiple-definition "$@"
+          LDWRAP
+          chmod +x /tmp/ksu-build/bin/ld.lld
+          export PATH="/tmp/ksu-build/bin:$PATH"
 
           make -j"$(nproc --all)" O=out ARCH=arm64 \
             CLANG_PREBUILT_BIN="$CLANG_PREBUILT_BIN" \

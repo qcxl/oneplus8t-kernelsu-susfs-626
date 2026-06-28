@@ -61,25 +61,39 @@ jobs:
       - name: Configure kernel (PURE ORIGINAL CONFIG - no KSU/SUSFS)
         working-directory: kernel
         run: |
-          export PATH="/tmp/clang-r450784d/bin:$PATH"
+          export PATH="/tmp/clang-r450784d/bin:/usr/lib/ccache:$PATH"
           export ARCH=arm64
+          export LLVM=1
+          export LLVM_IAS=1
 
           make O=out ARCH=arm64 \
             CC=clang \
-            LD=/tmp/clang-r450784d/bin/ld.lld \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
             vendor/kona-perf_defconfig
 
-          export PATH="/tmp/clang-r450784d/bin:$PATH"
+          export PATH="/tmp/clang-r450784d/bin:/usr/lib/ccache:$PATH"
           export ARCH=arm64
+          export LLVM=1
+          export LLVM_IAS=1
 
           cp ../kernel-patches/ksu.config.pure out/.config
 
           make O=out ARCH=arm64 \
             CC=clang \
-            LD=/tmp/clang-r450784d/bin/ld.lld \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
@@ -90,12 +104,19 @@ jobs:
       - name: Build kernel
         working-directory: kernel
         run: |
-          export PATH="/tmp/clang-r450784d/bin:$PATH"
+          export PATH="/tmp/clang-r450784d/bin:/usr/lib/ccache:$PATH"
           export ARCH=arm64
+          export LLVM=1
+          export LLVM_IAS=1
 
           make -j"$(nproc --all)" O=out ARCH=arm64 \
             CC=clang \
-            LD=/tmp/clang-r450784d/bin/ld.lld \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip \
             CLANG_TRIPLE=aarch64-linux-gnu- \
             CROSS_COMPILE=aarch64-linux-gnu- \
             CROSS_COMPILE_ARM32=arm-linux-gnueabi- \

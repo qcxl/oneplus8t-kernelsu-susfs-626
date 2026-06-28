@@ -108,7 +108,8 @@ jobs:
           export ARCH=arm64
           export LLVM=1
           export LLVM_IAS=1
-          export KCFLAGS="-fno-pic"
+          # KCFLAGS intentionally empty - kernel's own Makefile sets -fno-PIE
+          # Do NOT add -fno-pic here (not present in original build)
 
           make -j"$(nproc --all)" O=out ARCH=arm64 \
             CC=clang \

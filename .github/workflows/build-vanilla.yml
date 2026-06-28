@@ -53,9 +53,7 @@ jobs:
       - name: Apply kernel compatibility patches
         working-directory: kernel
         run: |
-          patch -p1 --forward --fuzz=3 < ../kernel-patches/fix_strnstr_msm_drv.patch || true
-          patch -p1 --forward --fuzz=3 < ../kernel-patches/fix_dtb_no_qcom.patch || true
-          echo "=== Patches applied ==="
+          echo "=== No patches - using device's raw config directly ==="
 
       - name: Configure kernel (PURE ORIGINAL CONFIG - no KSU/SUSFS)
         working-directory: kernel
@@ -83,20 +81,11 @@ jobs:
           export LLVM=1
           export LLVM_IAS=1
 
+          # Use device's exact .config directly, skip olddefconfig
+          # (olddefconfig would re-resolve Kconfig deps against a different kernel version)
           cp ../kernel-patches/ksu.config.pure out/.config
 
-          make O=out ARCH=arm64 \
-            CC=clang \
-            LD=ld.lld \
-            AR=llvm-ar \
-            NM=llvm-nm \
-            OBJCOPY=llvm-objcopy \
-            OBJDUMP=llvm-objdump \
-            STRIP=llvm-strip \
-            CLANG_TRIPLE=aarch64-linux-gnu- \
-            CROSS_COMPILE=aarch64-linux-gnu- \
-            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
-            olddefconfig
+          echo "=== Config ready, olddefconfig skipped ==="
 
       - name: Build kernel
         working-directory: kernel

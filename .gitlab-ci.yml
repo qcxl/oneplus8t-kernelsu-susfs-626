@@ -27,13 +27,17 @@ build-kernel:
       - kernel/out/arch/arm64/boot/Image.gz
     expire_in: 30 days
   script:
-    # Clone Android clang r450784d
+    # Clone Android clang r450784d（国内环境需代理）
     - git clone --depth 1
-      https://github.com/TheBizarreAbhishek/clang-r450784d.git /tmp/clang-r450784d
+      https://mirrors.aliyun.com/android.googlesource.com/prebuilts/clang/host/linux-x86/clang-r450784d.git
+      /tmp/clang-r450784d 2>/dev/null || git clone --depth 1
+      https://gitlab.com/SwapnilVicky/clang-r450784d.git /tmp/clang-r450784d
     - /tmp/clang-r450784d/bin/clang --version
 
-    # Clone kernel source
+    # Clone kernel source（使用 fastgit 镜像加速）
     - git clone --depth 500 --branch lineage-20
+      https://hub.fastgit.org/LineageOS/android_kernel_oneplus_sm8250.git kernel 2>/dev/null
+      || git clone --depth 500 --branch lineage-20
       https://github.com/LineageOS/android_kernel_oneplus_sm8250.git kernel
     - cd kernel
     - git checkout 5dea892fe7e4
